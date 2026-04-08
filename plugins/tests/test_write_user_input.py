@@ -1,7 +1,7 @@
 import unittest
 
 from plugins.memory import InMemoryStore
-from app.persist_user_memo import write_user_input
+from app.memo_use_cases import write_user_input
 
 
 class TestWriteUserInput(unittest.TestCase):

@@ -45,7 +45,7 @@ or storage details.
   those protocols.
 
 Wiring happens at the composition root (`main.py`): choose an adapter and pass
-it into `persist_user_memo.write_user_input`.
+it into `memo_use_cases.write_user_input`.
 
 ### Why this shape
 
@@ -57,12 +57,12 @@ it into `persist_user_memo.write_user_input`.
 
 1. New business rules or data shapes -> put them in `model/`. Do not import
    `app` or `plugins` from here.
-2. New workflow -> add/extend functions in `app/` (e.g. `persist_user_memo.py`). Depend
+2. New workflow -> add/extend functions in `app/` (e.g. `memo_use_cases.py`). Depend
    on `model` and port types from `app/ports.py`, not concrete stores.
 3. New persistence or integration -> add module in `plugins/` implementing
    protocols in `app/ports.py`. Wire in `main.py`, not `model/`.
 4. New external capability -> declare a `Protocol` in `app/ports.py`, use it
-   from `app/persist_user_memo.py`, and implement it under `plugins/`.
+   from `app/memo_use_cases.py`, and implement it under `plugins/`.
 
 Rule of thumb: dependencies flow inward - `model` depends on nothing in this
 app; `app` depends on `model` and abstractions; `plugins` depends on `model`
@@ -74,7 +74,7 @@ and implements ports defined by `app`.
 flowchart LR
     M[main.py<br/>composition root]
     A[InMemoryStore<br/>plugin in plugins/]
-    P[app.persist_user_memo.write_user_input<br/>use case]
+    P[app.memo_use_cases.write_user_input<br/>use case]
 
     M -->|inject as PayloadWriter| P
     P -->|write(payload)| A
@@ -108,7 +108,7 @@ Defines ports as abstract interfaces.
 
 **What belongs here**
 
-- Use cases / pipelines: `persist_user_memo.write_user_input`.
+- Use cases / pipelines: `memo_use_cases.write_user_input`.
 - Ports in `ports.py` (`PayloadWriter`).
 - Package entrypoint: `__main__.py` for `python3 main.py`.
 
@@ -153,15 +153,28 @@ or manual steps.
 
 When refactoring, keep behavior the same and move one boundary at a time.
 
-1. Start at the app boundary (`app/persist_user_memo.py`) and keep port signatures stable.
+1. Start at the app boundary (`app/memo_use_cases.py`) and keep port signatures stable.
 2. Move/rename internals in small steps, then run tests.
 3. If storage details leak into `app/`, move them back into `plugins/`.
 4. Add one focused test before or during the refactor for the behavior you are preserving.
 
+Files you usually do **not** edit during a pure app-layer refactor:
+
+- `app/ports.py` - leave unchanged when the contract (method names/inputs/outputs) is the same.
+  Edit only if the use case needs a different capability or signature.
+- `plugins/sqlite_store.py` and other plugins - leave unchanged when infrastructure behavior is unchanged.
+  Edit only if a port contract changed or adapter behavior must change.
+- `model/transform.py` - leave unchanged when domain fields and invariants are unchanged.
+  Edit only when business data shape/rules change.
+- `main.py` - leave unchanged when composition/wiring is unchanged.
+  Edit only if entrypoint behavior, arguments, or wiring changes.
+- `data/sql/*.sql` - leave unchanged when query behavior is unchanged.
+  Edit only if persistence queries/migrations must change.
+
 Example: extract payload creation into a helper without changing behavior.
 
 ```python
-# app/persist_user_memo.py
+# app/memo_use_cases.py
 from datetime import datetime
 
 from .ports import PayloadWriter
@@ -186,28 +199,72 @@ def write_user_input(writer: PayloadWriter, user_text: str) -> Payload:
 Pattern to add a feature:
 
 1. Add/update domain type(s) in `model/` if needed.
-2. Add a new app use case in `app/persist_user_memo.py`.
+2. Add a new app use case in `app/memo_use_cases.py` (or a dedicated app module).
 3. Reuse existing port if possible, otherwise add a new port in `app/ports.py`.
 4. Implement the new behavior in one or more plugins.
-5. Wire it in `main.py` and add a test in `plugins/tests/`.
+5. Wire it in `main.py` and add tests in `plugins/tests/`.
 
-Example: add `write_greeting_input` that prefixes text.
+Files that may **not** need edits for a new feature (and when they do):
+
+- `model/transform.py` - no edit if existing `Payload` already represents the feature data.
+  Edit when new fields or domain rules are needed.
+- `app/ports.py` - no edit if an existing port already supports the feature.
+  Edit when the app needs a new capability (for example `list_all`).
+- `plugins/sqlite_store.py` - no edit if another plugin/adapter already provides the behavior you need.
+  Edit when SQLite must implement a new or changed port method.
+- `main.py` - no edit if feature is not exposed through the CLI yet.
+  Edit when adding flags/commands and wiring new app use cases.
+- `data/sql/*.sql` - no edit if existing SQL/migrations already support the feature.
+  Edit when new reads/writes/migrations are required.
+- `plugins/tests/` - always add or update tests for the new behavior, even if some production files remain unchanged.
+
+Example: add a `--list-all` feature that returns every saved memo.
 
 ```python
-# app/persist_user_memo.py
-def write_greeting_input(writer: PayloadWriter, name: str) -> Payload:
-    payload = Payload(
-        text=f"Hello, {name.strip()}!",
-        date=datetime.now().isoformat(timespec="seconds"),
-    )
-    writer.write(payload)
-    return payload
+# app/ports.py
+from typing import Protocol
+from model.transform import Payload
+
+
+class PayloadReader(Protocol):
+    def list_all(self) -> list[Payload]: ...
+
+
+# app/memo_use_cases.py
+def list_all_memos(reader: PayloadReader) -> list[Payload]:
+    return reader.list_all()
 ```
 
 ```python
-# plugins/tests/test_write_user_input.py
-def test_writes_greeting_text(self) -> None:
+# plugins/sqlite_store.py
+from pathlib import Path
+
+
+def list_all(self) -> list[Payload]:
+    repo_root = Path(__file__).resolve().parent.parent
+    sql_path = repo_root / "data" / "sql" / "select_all_memo.sql"
+    sql = sql_path.read_text(encoding="utf-8")
+    rows = self._conn.execute(sql).fetchall()
+    return [Payload(text=row[0], date=row[1]) for row in rows]
+```
+
+```python
+# main.py (composition root)
+if len(sys.argv) > 1 and sys.argv[1] == "--list-all":
+    for payload in list_all_memos(store):
+        print(f"{payload.date} | {payload.text}")
+else:
+    user_text = input("Enter text: ")
+    result = write_user_input(store, user_text)
+    print(f"Saved: {result}")
+```
+
+```python
+# plugins/tests/test_list_all_memos.py
+def test_list_all_returns_saved_records(self) -> None:
     store = InMemoryStore()
-    saved = write_greeting_input(store, "  Andrew  ")
-    self.assertEqual(saved.text, "Hello, Andrew!")
+    write_user_input(store, "first")
+    write_user_input(store, "second")
+    rows = list_all_memos(store)
+    self.assertEqual([r.text for r in rows], ["first", "second"])
 ```
