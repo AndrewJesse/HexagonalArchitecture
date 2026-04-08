@@ -6,27 +6,34 @@ from model.transform import Payload
 
 class SqliteStore:
     def __init__(self, path: str = "app.db") -> None:
+        self._repo_root = Path(__file__).resolve().parent.parent
+        self._migrations_dir = self._repo_root / "data" / "sql" / "migrations"
+        self._queries_dir = self._repo_root / "data" / "sql" / "queries"
+
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(path)
         self._run_migrations()
 
+    def _query_sql(self, name: str) -> str:
+        return (self._queries_dir / name).read_text(encoding="utf-8")
+
     def _run_migrations(self) -> None:
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                name TEXT PRIMARY KEY
-            )
-            """
-        )
-        # Load migrations from the current project layout.
-        repo_root = Path(__file__).resolve().parent.parent
-        migrations_dir = repo_root / "data" / "sql"
-        if not migrations_dir.exists():
+        if not self._migrations_dir.exists():
             return
-        migrations = sorted(migrations_dir.glob("*.sql"))
+        if not self._conn.execute(
+            self._query_sql("select_schema_migrations_table_exists.sql")
+        ).fetchone():
+            ddl_000 = self._migrations_dir / "000_create_schema_migrations_table.sql"
+            if ddl_000.exists():
+                self._conn.executescript(ddl_000.read_text(encoding="utf-8"))
+                self._conn.execute(
+                    self._query_sql("insert_migration.sql"),
+                    (ddl_000.name,),
+                )
+        migrations = sorted(self._migrations_dir.glob("*.sql"))
         for migration in migrations:
             already_applied = self._conn.execute(
-                "SELECT 1 FROM schema_migrations WHERE name = ?",
+                self._query_sql("select_migration_applied.sql"),
                 (migration.name,),
             ).fetchone()
             if already_applied:
@@ -35,57 +42,26 @@ class SqliteStore:
             sql = migration.read_text(encoding="utf-8")
             self._conn.executescript(sql)
             self._conn.execute(
-                "INSERT INTO schema_migrations (name) VALUES (?)",
+                self._query_sql("insert_migration.sql"),
                 (migration.name,),
             )
 
         has_payload_table = self._conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='payload'"
+            self._query_sql("select_payload_table_exists.sql")
         ).fetchone()
         if not has_payload_table:
-            bootstrap = migrations_dir / "create_memo_table.sql"
+            bootstrap = self._migrations_dir / "001_create_memo_table.sql"
             if bootstrap.exists():
                 self._conn.executescript(bootstrap.read_text(encoding="utf-8"))
                 self._conn.execute(
-                    "INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)",
+                    self._query_sql("insert_migration_ignore.sql"),
                     (bootstrap.name,),
                 )
-        self._upgrade_legacy_single_row_payload_table()
         self._conn.commit()
-
-    def _upgrade_legacy_single_row_payload_table(self) -> None:
-        row = self._conn.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='payload'"
-        ).fetchone()
-        if not row or not row[0]:
-            return
-        if "CHECK (id = 1)" not in row[0]:
-            return
-
-        self._conn.executescript(
-            """
-            CREATE TABLE payload_v2 (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                text TEXT NOT NULL,
-                date DATETIME NOT NULL
-            );
-
-            INSERT INTO payload_v2 (text, date)
-            SELECT text, date
-            FROM payload;
-
-            DROP TABLE payload;
-
-            ALTER TABLE payload_v2 RENAME TO payload;
-            """
-        )
 
     def write(self, data: Payload) -> None:
         self._conn.execute(
-            """
-            INSERT INTO payload (text, date)
-            VALUES (?, ?)
-            """,
+            self._query_sql("insert_payload.sql"),
             (data.text, data.date),
         )
         self._conn.commit()

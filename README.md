@@ -131,7 +131,7 @@ in-memory dicts, SQLite, files, REST clients, PLC gateways, etc.
 **In this repo**
 
 - `memory.py` - `InMemoryStore` test plugin.
-- `sqlite_store.py` - production SQLite plugin (migrations in `data/sql/`).
+- `sqlite_store.py` - production SQLite plugin (DDL migrations in `data/sql/migrations/`, reusable statements in `data/sql/queries/`).
 
 ### `plugins/tests/` - automated tests
 
@@ -168,7 +168,7 @@ Files you usually do **not** edit during a pure app-layer refactor:
   Edit only when business data shape/rules change.
 - `main.py` - leave unchanged when composition/wiring is unchanged.
   Edit only if entrypoint behavior, arguments, or wiring changes.
-- `data/sql/*.sql` - leave unchanged when query behavior is unchanged.
+- `data/sql/migrations/*.sql` and `data/sql/queries/*.sql` - leave unchanged when query behavior is unchanged.
   Edit only if persistence queries/migrations must change.
 
 Example: extract payload creation into a helper without changing behavior.
@@ -214,7 +214,7 @@ Files that may **not** need edits for a new feature (and when they do):
   Edit when SQLite must implement a new or changed port method.
 - `main.py` - no edit if feature is not exposed through the CLI yet.
   Edit when adding flags/commands and wiring new app use cases.
-- `data/sql/*.sql` - no edit if existing SQL/migrations already support the feature.
+- `data/sql/migrations/*.sql` and `data/sql/queries/*.sql` - no edit if existing SQL already supports the feature.
   Edit when new reads/writes/migrations are required.
 - `plugins/tests/` - always add or update tests for the new behavior, even if some production files remain unchanged.
 
@@ -242,7 +242,7 @@ from pathlib import Path
 
 def list_all(self) -> list[Payload]:
     repo_root = Path(__file__).resolve().parent.parent
-    sql_path = repo_root / "data" / "sql" / "select_all_memo.sql"
+    sql_path = repo_root / "data" / "sql" / "queries" / "select_all_memo.sql"
     sql = sql_path.read_text(encoding="utf-8")
     rows = self._conn.execute(sql).fetchall()
     return [Payload(text=row[0], date=row[1]) for row in rows]
