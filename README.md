@@ -130,8 +130,8 @@ in-memory dicts, SQLite, files, REST clients, PLC gateways, etc.
 
 **In this repo**
 
-- `memory.py` - `InMemoryStore` test plugin.
-- `sqlite_store.py` - production SQLite plugin (DDL migrations in `data/sql/migrations/`, reusable statements in `data/sql/queries/`).
+- `in_memory_store.py` - `InMemoryStore` test plugin.
+- `sqlite_store.py` - production SQLite plugin; DDL and queries live in this module (no separate `.sql` files in this repo).
 
 ### `plugins/tests/` - automated tests
 
@@ -168,8 +168,6 @@ Files you usually do **not** edit during a pure app-layer refactor:
   Edit only when business data shape/rules change.
 - `main.py` - leave unchanged when composition/wiring is unchanged.
   Edit only if entrypoint behavior, arguments, or wiring changes.
-- `data/sql/migrations/*.sql` and `data/sql/queries/*.sql` - leave unchanged when query behavior is unchanged.
-  Edit only if persistence queries/migrations must change.
 
 Example: extract payload creation into a helper without changing behavior.
 
@@ -214,8 +212,7 @@ Files that may **not** need edits for a new feature (and when they do):
   Edit when SQLite must implement a new or changed port method.
 - `main.py` - no edit if feature is not exposed through the CLI yet.
   Edit when adding flags/commands and wiring new app use cases.
-- `data/sql/migrations/*.sql` and `data/sql/queries/*.sql` - no edit if existing SQL already supports the feature.
-  Edit when new reads/writes/migrations are required.
+- `plugins/sqlite_store.py` - edit when the SQLite adapter needs new tables, columns, or queries. Optionally move very large SQL to a separate file later if it helps readability.
 - `plugins/tests/` - always add or update tests for the new behavior, even if some production files remain unchanged.
 
 Example: add a `--list-all` feature that returns every saved memo.
@@ -237,14 +234,13 @@ def list_all_memos(reader: PayloadReader) -> list[Payload]:
 
 ```python
 # plugins/sqlite_store.py
-from pathlib import Path
+_SELECT_ALL = """
+SELECT text, date FROM payload ORDER BY id ASC
+"""
 
 
 def list_all(self) -> list[Payload]:
-    repo_root = Path(__file__).resolve().parent.parent
-    sql_path = repo_root / "data" / "sql" / "queries" / "select_all_memo.sql"
-    sql = sql_path.read_text(encoding="utf-8")
-    rows = self._conn.execute(sql).fetchall()
+    rows = self._conn.execute(_SELECT_ALL).fetchall()
     return [Payload(text=row[0], date=row[1]) for row in rows]
 ```
 
