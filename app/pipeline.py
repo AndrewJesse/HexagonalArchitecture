@@ -1,9 +1,13 @@
-from app.ports import DataSource, DataSink
-from model.transform import Payload, normalize
+from datetime import datetime
+
+from .ports import PayloadWriter
+from model.transform import Payload
 
 
-def run(source: DataSource, sink: DataSink) -> Payload:
-    raw = source.read()
-    out = normalize(raw)
-    sink.write(out)
-    return out
+def write_user_input(writer: PayloadWriter, user_text: str) -> Payload:
+    payload = Payload(
+        text=user_text.strip(),
+        date=datetime.now().isoformat(timespec="seconds"),
+    )
+    writer.write(payload)
+    return payload

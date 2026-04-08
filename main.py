@@ -1,15 +1,12 @@
-"""Run from repo root: python main.py  (same as: python -m app)."""
-
-from app.pipeline import run
-from data.memory import InMemoryStore
-from model.transform import Payload
+from app.pipeline import write_user_input
+from plugins.sqlite_store import SqliteStore
 
 
 def main() -> None:
-    store = InMemoryStore()
-    store.write(Payload(text="  hello  "))
-    result = run(store, store)
-    print(result)
+    store = SqliteStore("data/data.db")
+    user_text = input("Enter text: ")
+    result = write_user_input(store, user_text)
+    print(f"Saved: {result}")
 
 
 if __name__ == "__main__":
