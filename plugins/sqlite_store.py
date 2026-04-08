@@ -43,7 +43,7 @@ class SqliteStore:
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='payload'"
         ).fetchone()
         if not has_payload_table:
-            bootstrap = migrations_dir / "0001_create_payload.sql"
+            bootstrap = migrations_dir / "create_memo_table.sql"
             if bootstrap.exists():
                 self._conn.executescript(bootstrap.read_text(encoding="utf-8"))
                 self._conn.execute(
