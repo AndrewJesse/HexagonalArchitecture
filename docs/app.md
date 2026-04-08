@@ -8,7 +8,7 @@ Orchestrates **what the system does**: load data, call domain logic, persist res
 
 - **Use cases / pipelines** — e.g. `pipeline.run`: coordinate `DataSource`, domain functions, and `DataSink`.
 - **Ports** — `Protocol` definitions in `ports.py` (e.g. `DataSource`, `DataSink`).
-- **Composition for running the app** — `main.py` wires concrete adapters to the pipeline; `__main__.py` supports `python -m app`.
+- **Package entrypoint** — `__main__.py` supports `python -m app` and delegates to the root composition.
 
 ## What does not belong here
 
@@ -24,5 +24,4 @@ Orchestrates **what the system does**: load data, call domain logic, persist res
 
 - `ports.py` — `DataSource`, `DataSink`.
 - `pipeline.py` — `run` use case.
-- `main.py` — demo wiring and `main()`.
 - `__main__.py` — entry when using `python -m app`.
