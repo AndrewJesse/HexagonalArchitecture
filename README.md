@@ -72,12 +72,12 @@ and implements ports defined by `app`.
 
 ```mermaid
 flowchart LR
-    M[main.py<br/>composition root]
-    A[InMemoryStore<br/>plugin in plugins/]
-    P[app.memo_use_cases.write_user_input<br/>use case]
+    M["main.py<br/>composition root"]
+    A["InMemoryStore<br/>plugin in plugins/"]
+    P["write_user_input<br/>app.memo_use_cases"]
 
-    M -->|inject as PayloadWriter| P
-    P -->|write(payload)| A
+    M -->|"inject as PayloadWriter"| P
+    P -->|"write(payload)"| A
 ```
 
 ## Folder guide
