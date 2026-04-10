@@ -14,13 +14,20 @@ HexagonalArchitecture/
             ports.py                     #     PayloadWriter
         services/                        #   Use cases / orchestration
             memo_use_cases.py            #     write_user_input()
+            tests/
+                test_write_user_input.py #     Tests the use case with in-memory mock
     adapters/                            # Outermost — depends on domain + application
         driving/                         #   LEFT side (primary) — drives the app
             cli.py                       #     CLI user interaction
+            tests/
+                test_cli.py              #     Tests the CLI adapter
         driven/                          #   RIGHT side (secondary) — app drives these
             in_memory_store.py           #     Test double (mock)
             sqlite_store.py              #     Real persistence
+            tests/
+                test_sqlite_store.py     #     Tests the SQLite adapter
     main.py                              # Composition root — wires everything
+    __main__.py                          # Entry point: python -m HexagonalArchitecture
     example/                             # Standalone demo scripts
         with_hexagonal.py                #   Discount calculator (hexagonal)
         without_hexagonal.py             #   Discount calculator (no hexagonal)
@@ -35,7 +42,7 @@ python3 main.py
 ## Tests
 
 ```bash
-python3 -m pytest adapters/driven/tests/ application/services/tests/ -v
+python3 -m pytest adapters/driven/tests/ adapters/driving/tests/ application/services/tests/ -v
 ```
 
 ## Architecture
