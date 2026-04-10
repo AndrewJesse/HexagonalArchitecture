@@ -1,9 +1,13 @@
-# Domain Layer — the innermost ring of the hexagon.
+# Domain Layer — pure data structures and business rules.
 #
-# Domain objects are pure data structures and business rules.
-# They have ZERO dependencies on application, adapters, or any framework.
-# Every other layer may import from domain, but domain never imports
-# from anything outside itself.
+# In Clean Architecture this is the innermost layer, independent of
+# everything else.  In Cockburn's hexagonal architecture, domain is
+# simply part of "the application" — but kept in its own top-level
+# folder here so the dependency rule is enforced by structure:
+#
+#   domain/  ← depends on nothing
+#   application/  ← depends on domain
+#   adapters/  ← depends on domain + application
 from dataclasses import dataclass
 
 

@@ -5,7 +5,7 @@
 # use case works independently of any infrastructure.
 import unittest
 
-from adapters.in_memory_store import InMemoryStore
+from adapters.driven.in_memory_store import InMemoryStore
 from application.services import write_user_input
 
 

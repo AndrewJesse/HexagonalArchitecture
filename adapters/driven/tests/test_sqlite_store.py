@@ -7,7 +7,7 @@ import os
 import tempfile
 import unittest
 
-from adapters.sqlite_store import SqliteStore
+from adapters.driven.sqlite_store import SqliteStore
 from domain.transform import Payload
 
 
