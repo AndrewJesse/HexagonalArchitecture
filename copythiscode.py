@@ -13,7 +13,7 @@ class ForGettingTaxRates(ABC):
     def tax_rate(self, amount: float) -> float:
         pass
 
-# Application service: core business logic depending only on ports.
+# Service core business logic depending only on ports.
 class TaxCalculator(ForCalculatingTaxes):
     def __init__(self, tax_rate_repository: ForGettingTaxRates) -> None:
         self.tax_rate_repository = tax_rate_repository
@@ -21,7 +21,7 @@ class TaxCalculator(ForCalculatingTaxes):
     def tax_on(self, amount: float) -> float:
         return amount * self.tax_rate_repository.tax_rate(amount)
 
-# Driven adapter: concrete infrastructure implementation for tax rates.
+# Adapter: concrete infrastructure implementation for tax rates.
 class FixedTaxRateRepository(ForGettingTaxRates):
     def tax_rate(self, amount: float) -> float:
         return 0.15
@@ -35,8 +35,3 @@ def main() -> None:
 # Runtime entry point: starts the composed application.
 if __name__ == "__main__":
     main()
-
-
-
-
-
